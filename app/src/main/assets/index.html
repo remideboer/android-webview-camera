@@ -324,7 +324,58 @@
         stopScanning();
       }
 
-      function capturePhoto() {
+      async function savePhotoAutomatically(dataUrl) {
+        // Check if Android interface is available (WebView)
+        if (window.AndroidFileSaver) {
+          try {
+            const result = window.AndroidFileSaver.savePhoto(dataUrl);
+            if (result.startsWith("Photo saved:")) {
+              showMessage(result);
+              return true;
+            } else {
+              showError(result);
+              return false;
+            }
+          } catch (error) {
+            console.error(error);
+            showError("Failed to save photo: " + error.message);
+            return false;
+          }
+        }
+        
+        // Fallback to browser File System Access API
+        if (window.showSaveFilePicker) {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: "photo.jpg",
+              types: [
+                {
+                  description: "JPEG Image",
+                  accept: { "image/jpeg": [".jpg", ".jpeg"] },
+                },
+              ],
+            });
+            const writable = await handle.createWritable();
+            const response = await fetch(dataUrl);
+            await writable.write(await response.blob());
+            await writable.close();
+            showMessage("Photo saved to device storage.");
+            return true;
+          } catch (error) {
+            if (error.name !== "AbortError") {
+              console.error(error);
+              // Don't show error for user cancellation, just return false
+              return false;
+            }
+            return false;
+          }
+        }
+        
+        // No save method available
+        return false;
+      }
+
+      async function capturePhoto() {
         if (!preview.srcObject) {
           return;
         }
@@ -346,7 +397,13 @@
         downloadLink.href = dataUrl;
         downloadLink.hidden = false;
         savePhotoBtn.hidden = false;
-        showMessage("Photo captured. You can download it below.");
+        
+        // Automatically save the photo
+        showMessage("Saving photo...");
+        const saved = await savePhotoAutomatically(dataUrl);
+        if (!saved) {
+          showMessage("Photo captured. You can download it below.");
+        }
       }
 
       function showMessage(message) {
@@ -457,54 +514,12 @@
           return;
         }
         
-        // Check if Android interface is available (WebView)
-        if (window.AndroidFileSaver) {
-          showMessage("Saving photo...");
-          try {
-            // Extract base64 data from data URL
-            const base64Data = photo.src;
-            const result = window.AndroidFileSaver.savePhoto(base64Data);
-            if (result.startsWith("Photo saved:")) {
-              showMessage(result);
-            } else {
-              showError(result);
-            }
-          } catch (error) {
-            console.error(error);
-            showError("Failed to save photo: " + error.message);
-          }
-          return;
+        showMessage("Saving photo...");
+        const saved = await savePhotoAutomatically(photo.src);
+        if (!saved) {
+          // Final fallback: download link
+          downloadLink.click();
         }
-        
-        // Fallback to browser File System Access API
-        if (window.showSaveFilePicker) {
-          showMessage("Choose a location to save the photo...");
-          try {
-            const handle = await window.showSaveFilePicker({
-              suggestedName: "photo.jpg",
-              types: [
-                {
-                  description: "JPEG Image",
-                  accept: { "image/jpeg": [".jpg", ".jpeg"] },
-                },
-              ],
-            });
-            const writable = await handle.createWritable();
-            const response = await fetch(photo.src);
-            await writable.write(await response.blob());
-            await writable.close();
-            showMessage("Photo saved to device storage.");
-            return;
-          } catch (error) {
-            if (error.name !== "AbortError") {
-              console.error(error);
-              showError("Saving failed. Try the download link instead.");
-            }
-          }
-        }
-        
-        // Final fallback: download link
-        downloadLink.click();
       });
       scanBtn.addEventListener("click", () => {
         if (isScanning) {
