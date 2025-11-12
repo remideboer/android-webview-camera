@@ -387,6 +387,27 @@
         if (!photo.src) {
           return;
         }
+        
+        // Check if Android interface is available (WebView)
+        if (window.AndroidFileSaver) {
+          showMessage("Saving photo...");
+          try {
+            // Extract base64 data from data URL
+            const base64Data = photo.src;
+            const result = window.AndroidFileSaver.savePhoto(base64Data);
+            if (result.startsWith("Photo saved:")) {
+              showMessage(result);
+            } else {
+              showError(result);
+            }
+          } catch (error) {
+            console.error(error);
+            showError("Failed to save photo: " + error.message);
+          }
+          return;
+        }
+        
+        // Fallback to browser File System Access API
         if (window.showSaveFilePicker) {
           showMessage("Choose a location to save the photo...");
           try {
@@ -412,6 +433,8 @@
             }
           }
         }
+        
+        // Final fallback: download link
         downloadLink.click();
       });
       scanBtn.addEventListener("click", () => {

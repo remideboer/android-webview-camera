@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private val CAMERA_PERMISSION_REQUEST_CODE = 100
+    private val STORAGE_PERMISSION_REQUEST_CODE = 101
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,17 +25,8 @@ class MainActivity : AppCompatActivity() {
         
         setupWebView()
         
-        // Request camera permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.CAMERA),
-                CAMERA_PERMISSION_REQUEST_CODE
-            )
-        } else {
-            loadCameraPage()
-        }
+        // Request permissions
+        requestPermissions()
     }
 
     private fun setupWebView() {
@@ -61,6 +53,37 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // Add JavaScript interface for saving files
+        webView.addJavascriptInterface(FileSaver(this), "AndroidFileSaver")
+    }
+
+    private fun requestPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+        
+        // Camera permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        
+        // Storage permission (only for Android 9 and below)
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+        
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this,
+                permissionsToRequest.toTypedArray(),
+                CAMERA_PERMISSION_REQUEST_CODE
+            )
+        } else {
+            loadCameraPage()
+        }
     }
 
     private fun loadCameraPage() {
@@ -73,8 +96,15 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE || requestCode == STORAGE_PERMISSION_REQUEST_CODE) {
+            var allGranted = true
+            for (i in grantResults.indices) {
+                if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false
+                    break
+                }
+            }
+            if (allGranted) {
                 loadCameraPage()
             }
         }
