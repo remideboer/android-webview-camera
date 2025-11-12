@@ -62,12 +62,11 @@
       }
 
       video {
-        max-height: 85vh;
-        height: 85vh;
         object-fit: cover;
         display: block;
         position: relative;
         z-index: 0;
+        width: 100%;
       }
 
       #qr-overlay {
@@ -85,9 +84,20 @@
 
       #capture-button-container {
         display: flex;
-        justify-content: center;
+        justify-content: space-between;
         align-items: center;
         padding: 1rem 0;
+        gap: 1rem;
+      }
+
+      #capture-button-container #capture {
+        flex-shrink: 0;
+      }
+
+      #capture-button-container #toggle-camera,
+      #capture-button-container #toggle-scan {
+        flex: 1;
+        max-width: 120px;
       }
 
       #capture {
@@ -197,11 +207,8 @@
       </div>
 
       <div id="capture-button-container">
-        <button id="capture" disabled>Capture</button>
-      </div>
-
-      <div id="controls">
         <button id="toggle-camera">Start Camera</button>
+        <button id="capture" disabled>Capture</button>
         <button id="toggle-scan" class="secondary">Start QR Scan</button>
       </div>
 
@@ -241,6 +248,40 @@
       let isScanning = false;
       let scanHandle;
       let barcodeDetector;
+
+      // Dynamic layout adjustment function
+      function adjustVideoHeight() {
+        const viewportHeight = window.innerHeight;
+        const videoContainer = document.getElementById("video-container");
+        const captureButtonContainer = document.getElementById("capture-button-container");
+        
+        // Calculate heights of button containers (measure actual rendered heights)
+        const captureButtonHeight = captureButtonContainer ? captureButtonContainer.offsetHeight : 100; // 80px button + padding
+        const qrResultHeight = qrResult && qrResult.style.display !== "none" ? qrResult.offsetHeight : 0;
+        
+        // Calculate available space (viewport - buttons - padding)
+        // Body padding (1.5rem top + 1.5rem bottom = 3rem = ~48px) + gaps between camera-area elements (~16px)
+        const bodyPadding = 48; // 1.5rem * 2 = 48px
+        const gaps = 16; // Gaps between camera-area elements (reduced since controls are now in same row)
+        const totalPadding = bodyPadding + gaps;
+        const availableHeight = viewportHeight - captureButtonHeight - qrResultHeight - totalPadding;
+        
+        // Set video height dynamically, but ensure minimum and maximum constraints
+        // Minimum 200px, maximum 75% of viewport
+        const videoHeight = Math.max(200, Math.min(availableHeight, viewportHeight * 0.75));
+        
+        if (videoContainer && preview) {
+          videoContainer.style.height = `${videoHeight}px`;
+          preview.style.height = `${videoHeight}px`;
+          preview.style.maxHeight = `${videoHeight}px`;
+        }
+      }
+
+      // Adjust on load and resize
+      window.addEventListener("load", () => {
+        setTimeout(adjustVideoHeight, 100); // Small delay to ensure elements are rendered
+      });
+      window.addEventListener("resize", adjustVideoHeight);
 
       function checkProtocol() {
         const protocol = window.location.protocol;
@@ -308,6 +349,8 @@
             const overlayRect = qrOverlay.getBoundingClientRect();
             qrOverlay.width = overlayRect.width;
             qrOverlay.height = overlayRect.height;
+            // Adjust layout after video loads
+            setTimeout(adjustVideoHeight, 100);
           });
 
           captureBtn.disabled = false;
@@ -452,6 +495,7 @@
           qrResult.style.display = "none";
           qrResult.textContent = "";
           qrResult.classList.remove("error");
+          setTimeout(adjustVideoHeight, 50);
           return;
         }
         // Only set textContent if it's a plain string, preserve HTML if already set
@@ -460,12 +504,14 @@
         }
         qrResult.classList.remove("error");
         qrResult.style.display = "block";
+        setTimeout(adjustVideoHeight, 50);
       }
 
       function showError(message) {
         qrResult.textContent = message;
         qrResult.classList.add("error");
         qrResult.style.display = "block";
+        setTimeout(adjustVideoHeight, 50);
       }
 
       function stopScanning() {
