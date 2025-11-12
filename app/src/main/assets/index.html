@@ -294,7 +294,6 @@
         const ctx = canvas.getContext("2d");
         ctx.drawImage(preview, 0, 0, width, height);
 
-        canvas.hidden = false;
         const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
         photo.src = dataUrl;
         photo.hidden = false;
