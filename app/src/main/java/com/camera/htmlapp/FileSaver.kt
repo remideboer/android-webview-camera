@@ -70,7 +70,7 @@ class FileSaver(private val context: Context) {
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
         }
 
         val uri = context.contentResolver.insert(
@@ -86,12 +86,12 @@ class FileSaver(private val context: Context) {
     }
 
     private fun savePhotoToFile(bitmap: Bitmap, filename: String): String? {
-        val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-        if (!picturesDir.exists()) {
-            picturesDir.mkdirs()
+        val dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+        if (!dcimDir.exists()) {
+            dcimDir.mkdirs()
         }
 
-        val file = File(picturesDir, filename)
+        val file = File(dcimDir, filename)
         FileOutputStream(file).use { outputStream ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 92, outputStream)
         }
