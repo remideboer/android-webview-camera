@@ -413,7 +413,10 @@
           qrResult.classList.remove("error");
           return;
         }
-        qrResult.textContent = message;
+        // Only set textContent if it's a plain string, preserve HTML if already set
+        if (typeof message === "string" && !qrResult.querySelector("a") && !qrResult.querySelector("button")) {
+          qrResult.textContent = message;
+        }
         qrResult.classList.remove("error");
         qrResult.style.display = "block";
       }
@@ -460,6 +463,90 @@
         scanLoop();
       }
 
+      function isURL(str) {
+        try {
+          const url = new URL(str);
+          return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+          return false;
+        }
+      }
+
+      function handleQRCodeResult(value) {
+        stopScanning();
+        
+        // Clear previous content
+        qrResult.innerHTML = "";
+        qrResult.classList.remove("error");
+        qrResult.style.display = "block";
+        
+        if (isURL(value)) {
+          // It's a URL - offer to open it
+          const messageDiv = document.createElement("div");
+          messageDiv.textContent = `QR Code detected: ${value}`;
+          messageDiv.style.marginBottom = "0.75rem";
+          qrResult.appendChild(messageDiv);
+          
+          // Create a clickable link
+          const link = document.createElement("a");
+          link.href = value;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Open Link";
+          link.style.cssText = "display: inline-block; margin-right: 0.5rem; padding: 0.75rem 1.25rem; background: #0a84ff; color: white; text-decoration: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          qrResult.appendChild(link);
+          
+          // Also add a copy button
+          const copyBtn = document.createElement("button");
+          copyBtn.textContent = "Copy";
+          copyBtn.style.cssText = "display: inline-block; padding: 0.75rem 1.25rem; background: #e5e5ea; color: #1d1d1f; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          copyBtn.onclick = () => {
+            navigator.clipboard.writeText(value).then(() => {
+              copyBtn.textContent = "Copied!";
+              setTimeout(() => copyBtn.textContent = "Copy", 2000);
+            }).catch(() => {
+              // Fallback for older browsers
+              const textArea = document.createElement("textarea");
+              textArea.value = value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+              copyBtn.textContent = "Copied!";
+              setTimeout(() => copyBtn.textContent = "Copy", 2000);
+            });
+          };
+          qrResult.appendChild(copyBtn);
+        } else {
+          // Not a URL - just show the value with copy option
+          const messageDiv = document.createElement("div");
+          messageDiv.textContent = `QR Code: ${value}`;
+          messageDiv.style.marginBottom = "0.75rem";
+          qrResult.appendChild(messageDiv);
+          
+          const copyBtn = document.createElement("button");
+          copyBtn.textContent = "Copy";
+          copyBtn.style.cssText = "display: inline-block; padding: 0.75rem 1.25rem; background: #0a84ff; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          copyBtn.onclick = () => {
+            navigator.clipboard.writeText(value).then(() => {
+              copyBtn.textContent = "Copied!";
+              setTimeout(() => copyBtn.textContent = "Copy", 2000);
+            }).catch(() => {
+              // Fallback for older browsers
+              const textArea = document.createElement("textarea");
+              textArea.value = value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+              copyBtn.textContent = "Copied!";
+              setTimeout(() => copyBtn.textContent = "Copy", 2000);
+            });
+          };
+          qrResult.appendChild(copyBtn);
+        }
+      }
+
       async function scanLoop() {
         if (!isScanning || !barcodeDetector) {
           return;
@@ -467,8 +554,8 @@
         try {
           const barcodes = await barcodeDetector.detect(preview);
           if (barcodes.length) {
-            stopScanning();
-            showMessage(`QR Code: ${barcodes[0].rawValue}`);
+            const qrValue = barcodes[0].rawValue;
+            handleQRCodeResult(qrValue);
             return;
           } else if (!qrResult.classList.contains("error")) {
             showMessage("Scanning for QR codes...");

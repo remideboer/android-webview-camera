@@ -37,7 +37,7 @@ If these steps don't resolve the issue, this app provides a reliable workaround 
 - ✅ **Photo capture** - Large, easy-to-use capture button (camera app style)
 - ✅ **Automatic saving** - Photos saved directly to Pictures directory
 - ✅ **Photo deletion** - Delete last captured photo if needed
-- ❌ **QR code scanning** - Currently not working (needs to be fixed)
+- ✅ **QR code scanning** - Scan QR codes with automatic URL detection and link opening
 - ✅ **Offline capable** - Works without internet connection
 - ✅ **Full-screen interface** - Clean, distraction-free camera view
 
