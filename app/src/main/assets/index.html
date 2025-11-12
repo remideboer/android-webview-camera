@@ -209,7 +209,7 @@
 
       <div id="controls">
         <button id="start-camera">Start Camera</button>
-        <button id="toggle-scan" class="secondary" disabled>Start QR Scan</button>
+        <button id="toggle-scan" class="secondary">Start QR Scan</button>
         <button id="stop" class="secondary" disabled>Stop Camera</button>
       </div>
 
@@ -350,7 +350,7 @@
         }
         preview.srcObject = null;
         captureBtn.disabled = true;
-        scanBtn.disabled = true;
+        scanBtn.disabled = false; // Keep scan button enabled so it can start camera
         stopBtn.disabled = true;
         startCameraBtn.disabled = false;
         stopScanning();
@@ -597,11 +597,20 @@
         }
       }
 
-      function startScanning() {
+      async function startScanning() {
+        // If camera is not running, start it first
         if (!preview.srcObject) {
-          showError("Start the camera before scanning QR codes.");
+          showMessage("Starting camera for QR scanning...");
+          await initCamera();
+          // Wait a bit for camera to be ready
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        if (!preview.srcObject) {
+          showError("Camera failed to start. Please try again.");
           return;
         }
+        
         if (!("BarcodeDetector" in window)) {
           showError(
             "Barcode Detector API is not available in this browser. Try the latest Chrome."
@@ -807,12 +816,12 @@
           showMessage("");
         }, 3000);
       });
-      scanBtn.addEventListener("click", () => {
+      scanBtn.addEventListener("click", async () => {
         if (isScanning) {
           showMessage("");
           stopScanning();
         } else {
-          startScanning();
+          await startScanning();
         }
       });
 
