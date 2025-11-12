@@ -586,6 +586,14 @@
           }, 500);
         }
       }
+
+      // Automatically start camera when page loads (especially in WebView/Android app)
+      if (isWebView) {
+        // In Android app, start camera automatically after a short delay
+        setTimeout(() => {
+          initCamera();
+        }, 500);
+      }
     </script>
   </body>
 </html>
