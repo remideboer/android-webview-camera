@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -14,6 +15,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class FileSaver(private val context: Context) {
+    private var lastSavedUri: Uri? = null
+    private var lastSavedFilePath: String? = null
 
     @JavascriptInterface
     fun savePhoto(base64Data: String): String {
@@ -39,19 +42,29 @@ class FileSaver(private val context: Context) {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 // Android 10+ (API 29+): Use MediaStore API (no permission needed)
-                savePhotoToMediaStore(bitmap, filename)
+                val uri = savePhotoToMediaStore(bitmap, filename)
+                if (uri != null) {
+                    lastSavedUri = uri
+                    lastSavedFilePath = null
+                    return "Photo saved: $filename"
+                }
             } else {
                 // Android 9 and below: Save to Pictures directory
-                savePhotoToFile(bitmap, filename)
+                val filePath = savePhotoToFile(bitmap, filename)
+                if (filePath != null) {
+                    lastSavedFilePath = filePath
+                    lastSavedUri = null
+                    return "Photo saved: $filename"
+                }
             }
 
-            "Photo saved: $filename"
+            "Error: Failed to save photo"
         } catch (e: Exception) {
             "Error saving photo: ${e.message}"
         }
     }
 
-    private fun savePhotoToMediaStore(bitmap: Bitmap, filename: String): Boolean {
+    private fun savePhotoToMediaStore(bitmap: Bitmap, filename: String): Uri? {
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
@@ -61,16 +74,16 @@ class FileSaver(private val context: Context) {
         val uri = context.contentResolver.insert(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             contentValues
-        ) ?: return false
+        ) ?: return null
 
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 92, outputStream)
         }
 
-        return true
+        return uri
     }
 
-    private fun savePhotoToFile(bitmap: Bitmap, filename: String): Boolean {
+    private fun savePhotoToFile(bitmap: Bitmap, filename: String): String? {
         val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
         if (!picturesDir.exists()) {
             picturesDir.mkdirs()
@@ -86,7 +99,42 @@ class FileSaver(private val context: Context) {
         intent.data = android.net.Uri.fromFile(file)
         context.sendBroadcast(intent)
 
-        return true
+        return file.absolutePath
+    }
+
+    @JavascriptInterface
+    fun deleteLastPhoto(): String {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+: Delete using MediaStore URI
+                lastSavedUri?.let { uri ->
+                    val deleted = context.contentResolver.delete(uri, null, null)
+                    if (deleted > 0) {
+                        lastSavedUri = null
+                        "Photo deleted successfully"
+                    } else {
+                        "Error: Could not delete photo"
+                    }
+                } ?: "Error: No photo to delete"
+            } else {
+                // Android 9 and below: Delete using file path
+                lastSavedFilePath?.let { filePath ->
+                    val file = File(filePath)
+                    if (file.exists() && file.delete()) {
+                        lastSavedFilePath = null
+                        // Notify media scanner
+                        val intent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                        intent.data = android.net.Uri.fromFile(file)
+                        context.sendBroadcast(intent)
+                        "Photo deleted successfully"
+                    } else {
+                        "Error: Could not delete photo file"
+                    }
+                } ?: "Error: No photo to delete"
+            }
+        } catch (e: Exception) {
+            "Error deleting photo: ${e.message}"
+        }
     }
 }
 

@@ -195,7 +195,7 @@
         <canvas id="photo-canvas" hidden></canvas>
         <img id="photo" alt="Captured photo preview" hidden />
         <a id="download-link" download="photo.jpg" hidden>Download photo</a>
-        <button id="save-photo" class="secondary" hidden>Save photo</button>
+        <button id="save-photo" class="secondary" hidden>Delete photo</button>
       </div>
     </section>
 
@@ -509,17 +509,46 @@
         captureBtn.classList.remove("pressed");
         capturePhoto();
       });
-      savePhotoBtn.addEventListener("click", async () => {
+      savePhotoBtn.addEventListener("click", () => {
         if (!photo.src) {
           return;
         }
         
-        showMessage("Saving photo...");
-        const saved = await savePhotoAutomatically(photo.src);
-        if (!saved) {
-          // Final fallback: download link
-          downloadLink.click();
+        // Delete the last photo from storage
+        if (window.AndroidFileSaver) {
+          try {
+            const result = window.AndroidFileSaver.deleteLastPhoto();
+            if (result.includes("successfully")) {
+              // Clear UI
+              photo.src = "";
+              photo.hidden = true;
+              canvas.hidden = true;
+              downloadLink.href = "";
+              downloadLink.hidden = true;
+              savePhotoBtn.hidden = true;
+              showMessage(result);
+            } else {
+              showError(result);
+            }
+          } catch (error) {
+            console.error(error);
+            showError("Failed to delete photo: " + error.message);
+          }
+        } else {
+          // Not in WebView, just clear UI
+          photo.src = "";
+          photo.hidden = true;
+          canvas.hidden = true;
+          downloadLink.href = "";
+          downloadLink.hidden = true;
+          savePhotoBtn.hidden = true;
+          showMessage("Photo removed from display (file deletion not available in browser).");
         }
+        
+        // Clear message after a short delay
+        setTimeout(() => {
+          showMessage("");
+        }, 3000);
       });
       scanBtn.addEventListener("click", () => {
         if (isScanning) {
