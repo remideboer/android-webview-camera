@@ -2,6 +2,7 @@ package com.camera.htmlapp
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -9,6 +10,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.webkit.JavascriptInterface
+import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -134,6 +136,82 @@ class FileSaver(private val context: Context) {
             }
         } catch (e: Exception) {
             "Error deleting photo: ${e.message}"
+        }
+    }
+
+    @JavascriptInterface
+    fun sharePhoto(base64Data: String): String {
+        return try {
+            // Remove data URL prefix if present
+            val base64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.indexOf(",") + 1)
+            } else {
+                base64Data
+            }
+
+            // Decode base64 to bitmap
+            val imageBytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+            val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+
+            if (bitmap == null) {
+                return "Error: Could not decode image"
+            }
+
+            // Generate filename with timestamp
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val filename = "photo_$timestamp.jpg"
+
+            // Save to temporary file for sharing
+            val cacheDir = context.cacheDir
+            val file = File(cacheDir, filename)
+            FileOutputStream(file).use { outputStream ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 92, outputStream)
+            }
+
+            // Create URI for sharing
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+            } else {
+                Uri.fromFile(file)
+            }
+
+            // Create share intent
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/jpeg"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            // Start share activity
+            val chooser = Intent.createChooser(shareIntent, "Share photo")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+
+            "Sharing photo..."
+        } catch (e: Exception) {
+            "Error sharing photo: ${e.message}"
+        }
+    }
+
+    @JavascriptInterface
+    fun shareText(text: String): String {
+        return try {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+
+            val chooser = Intent.createChooser(shareIntent, "Share")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+
+            "Sharing..."
+        } catch (e: Exception) {
+            "Error sharing: ${e.message}"
         }
     }
 }

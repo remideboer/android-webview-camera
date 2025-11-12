@@ -211,7 +211,10 @@
         <canvas id="photo-canvas" hidden></canvas>
         <img id="photo" alt="Captured photo preview" hidden />
         <a id="download-link" download="photo.jpg" hidden>Download photo</a>
-        <button id="save-photo" class="secondary" hidden>Delete photo</button>
+        <div id="photo-actions" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;" hidden>
+          <button id="share-photo" class="secondary" hidden>Share Photo</button>
+          <button id="save-photo" class="secondary" hidden>Delete photo</button>
+        </div>
       </div>
     </section>
 
@@ -230,6 +233,8 @@
       const downloadLink = document.getElementById("download-link");
       const qrResult = document.getElementById("qr-result");
       const savePhotoBtn = document.getElementById("save-photo");
+      const sharePhotoBtn = document.getElementById("share-photo");
+      const photoActions = document.getElementById("photo-actions");
       const qrOverlay = document.getElementById("qr-overlay");
 
       let stream;
@@ -430,6 +435,8 @@
 
         downloadLink.href = dataUrl;
         downloadLink.hidden = false;
+        photoActions.hidden = false;
+        sharePhotoBtn.hidden = false;
         savePhotoBtn.hidden = false;
         
         // Automatically save the photo
@@ -668,10 +675,19 @@
             window.open(value, "_blank", "noopener,noreferrer");
           }, 500); // Small delay to show the message
           
-          // Also add a copy button
+          // Add share and copy buttons
+          const buttonContainer = document.createElement("div");
+          buttonContainer.style.cssText = "display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;";
+          
+          const shareBtn = document.createElement("button");
+          shareBtn.textContent = "Share";
+          shareBtn.style.cssText = "padding: 0.75rem 1.25rem; background: #0a84ff; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          shareBtn.onclick = () => shareText(value);
+          buttonContainer.appendChild(shareBtn);
+          
           const copyBtn = document.createElement("button");
           copyBtn.textContent = "Copy";
-          copyBtn.style.cssText = "display: inline-block; margin-top: 0.5rem; padding: 0.75rem 1.25rem; background: #e5e5ea; color: #1d1d1f; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          copyBtn.style.cssText = "padding: 0.75rem 1.25rem; background: #e5e5ea; color: #1d1d1f; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
           copyBtn.onclick = () => {
             navigator.clipboard.writeText(value).then(() => {
               copyBtn.textContent = "Copied!";
@@ -688,7 +704,8 @@
               setTimeout(() => copyBtn.textContent = "Copy", 2000);
             });
           };
-          qrResult.appendChild(copyBtn);
+          buttonContainer.appendChild(copyBtn);
+          qrResult.appendChild(buttonContainer);
         } else {
           // Not a URL - just show the value with copy option
           const messageDiv = document.createElement("div");
@@ -696,9 +713,19 @@
           messageDiv.style.marginBottom = "0.75rem";
           qrResult.appendChild(messageDiv);
           
+          // Add share and copy buttons
+          const buttonContainer = document.createElement("div");
+          buttonContainer.style.cssText = "display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;";
+          
+          const shareBtn = document.createElement("button");
+          shareBtn.textContent = "Share";
+          shareBtn.style.cssText = "padding: 0.75rem 1.25rem; background: #0a84ff; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          shareBtn.onclick = () => shareText(value);
+          buttonContainer.appendChild(shareBtn);
+          
           const copyBtn = document.createElement("button");
           copyBtn.textContent = "Copy";
-          copyBtn.style.cssText = "display: inline-block; padding: 0.75rem 1.25rem; background: #0a84ff; color: white; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          copyBtn.style.cssText = "padding: 0.75rem 1.25rem; background: #e5e5ea; color: #1d1d1f; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
           copyBtn.onclick = () => {
             navigator.clipboard.writeText(value).then(() => {
               copyBtn.textContent = "Copied!";
@@ -715,7 +742,8 @@
               setTimeout(() => copyBtn.textContent = "Copy", 2000);
             });
           };
-          qrResult.appendChild(copyBtn);
+          buttonContainer.appendChild(copyBtn);
+          qrResult.appendChild(buttonContainer);
         }
       }
 
@@ -779,6 +807,73 @@
         captureBtn.classList.remove("pressed");
         capturePhoto();
       });
+
+      // Share photo functionality
+      async function sharePhoto(dataUrl) {
+        // Check if Android interface is available (WebView)
+        if (window.AndroidFileSaver && window.AndroidFileSaver.sharePhoto) {
+          try {
+            const result = window.AndroidFileSaver.sharePhoto(dataUrl);
+            showMessage(result);
+          } catch (error) {
+            console.error(error);
+            showError("Failed to share photo: " + error.message);
+          }
+        } else if (navigator.share) {
+          // Use Web Share API if available
+          try {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const file = new File([blob], "photo.jpg", { type: "image/jpeg" });
+            await navigator.share({
+              files: [file],
+              title: "Shared Photo",
+            });
+          } catch (error) {
+            if (error.name !== "AbortError") {
+              console.error(error);
+              showError("Failed to share photo: " + error.message);
+            }
+          }
+        } else {
+          showError("Sharing is not available in this browser.");
+        }
+      }
+
+      // Share text functionality
+      async function shareText(text) {
+        // Check if Android interface is available (WebView)
+        if (window.AndroidFileSaver && window.AndroidFileSaver.shareText) {
+          try {
+            const result = window.AndroidFileSaver.shareText(text);
+            showMessage(result);
+          } catch (error) {
+            console.error(error);
+            showError("Failed to share: " + error.message);
+          }
+        } else if (navigator.share) {
+          // Use Web Share API if available
+          try {
+            await navigator.share({
+              text: text,
+            });
+          } catch (error) {
+            if (error.name !== "AbortError") {
+              console.error(error);
+              showError("Failed to share: " + error.message);
+            }
+          }
+        } else {
+          showError("Sharing is not available in this browser.");
+        }
+      }
+
+      sharePhotoBtn.addEventListener("click", async () => {
+        if (photo.src) {
+          await sharePhoto(photo.src);
+        }
+      });
+
       savePhotoBtn.addEventListener("click", () => {
         if (!photo.src) {
           return;
@@ -795,6 +890,8 @@
               canvas.hidden = true;
               downloadLink.href = "";
               downloadLink.hidden = true;
+              photoActions.hidden = true;
+              sharePhotoBtn.hidden = true;
               savePhotoBtn.hidden = true;
               showMessage(result);
             } else {
@@ -811,6 +908,8 @@
           canvas.hidden = true;
           downloadLink.href = "";
           downloadLink.hidden = true;
+          photoActions.hidden = true;
+          sharePhotoBtn.hidden = true;
           savePhotoBtn.hidden = true;
           showMessage("Photo removed from display (file deletion not available in browser).");
         }
