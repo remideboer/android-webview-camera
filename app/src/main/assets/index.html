@@ -201,9 +201,8 @@
       </div>
 
       <div id="controls">
-        <button id="start-camera">Start Camera</button>
+        <button id="toggle-camera">Start Camera</button>
         <button id="toggle-scan" class="secondary">Start QR Scan</button>
-        <button id="stop" class="secondary" disabled>Stop Camera</button>
       </div>
 
       <div id="qr-result"></div>
@@ -223,10 +222,9 @@
 
     <script>
       const preview = document.getElementById("preview");
-      const startCameraBtn = document.getElementById("start-camera");
+      const toggleCameraBtn = document.getElementById("toggle-camera");
       const captureBtn = document.getElementById("capture");
       const scanBtn = document.getElementById("toggle-scan");
-      const stopBtn = document.getElementById("stop");
       const canvas = document.getElementById("photo-canvas");
       const photo = document.getElementById("photo");
       const downloadLink = document.getElementById("download-link");
@@ -308,9 +306,8 @@
           });
 
           captureBtn.disabled = false;
-          stopBtn.disabled = false;
           scanBtn.disabled = false;
-          startCameraBtn.disabled = true;
+          toggleCameraBtn.textContent = "Stop Camera";
 
           showMessage("Camera is ready.");
         } catch (error) {
@@ -344,9 +341,21 @@
         preview.srcObject = null;
         captureBtn.disabled = true;
         scanBtn.disabled = false; // Keep scan button enabled so it can start camera
-        stopBtn.disabled = true;
-        startCameraBtn.disabled = false;
+        toggleCameraBtn.textContent = "Start Camera";
         stopScanning();
+        
+        // Clear scanning message if it's just the "Scanning for QR codes..." text
+        // But keep actual scanned results (URLs, QR codes with buttons)
+        if (qrResult) {
+          const hasButtons = qrResult.querySelector("button");
+          const hasLinks = qrResult.querySelector("a");
+          const isJustScanningMessage = qrResult.textContent.trim() === "Scanning for QR codes...";
+          
+          // Only clear if it's just the scanning message without any actual results
+          if (isJustScanningMessage && !hasButtons && !hasLinks) {
+            showMessage(""); // Clear the message
+          }
+        }
       }
 
       async function savePhotoAutomatically(dataUrl) {
@@ -738,8 +747,13 @@
         scanHandle = requestAnimationFrame(scanLoop);
       }
 
-      startCameraBtn.addEventListener("click", initCamera);
-      stopBtn.addEventListener("click", stopCamera);
+      toggleCameraBtn.addEventListener("click", () => {
+        if (preview.srcObject) {
+          stopCamera();
+        } else {
+          initCamera();
+        }
+      });
       
       // Capture button with visual feedback
       captureBtn.addEventListener("mousedown", () => {
