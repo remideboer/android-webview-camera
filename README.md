@@ -35,11 +35,16 @@ If these steps don't resolve the issue, this app provides a reliable workaround 
 
 - ✅ **Automatic camera startup** - Camera ready immediately when app opens
 - ✅ **Photo capture** - Large, easy-to-use capture button (camera app style)
-- ✅ **Automatic saving** - Photos saved directly to Pictures directory
-- ✅ **Photo deletion** - Delete last captured photo if needed
-- ✅ **QR code scanning** - Scan QR codes with automatic URL detection and link opening
+- ✅ **Video recording** - Record MP4 videos by pressing and holding the capture button
+- ✅ **Photo/Video mode toggle** - Switch between photo and video modes
+- ✅ **Automatic saving** - Photos and videos saved directly to DCIM directory (camera folder)
+- ✅ **Photo/video deletion** - Delete last captured photo or video if needed
+- ✅ **Share functionality** - Share photos, videos, and scanned QR codes with other apps
+- ✅ **QR code scanning** - Scan QR codes with visual detection indicator (green rectangle)
+- ✅ **Auto-open URLs** - Automatically opens URLs detected in QR codes
+- ✅ **Dynamic layout** - Buttons automatically adjust to fit screen without scrolling
 - ✅ **Offline capable** - Works without internet connection
-- ✅ **Full-screen interface** - Clean, distraction-free camera view
+- ✅ **Full-screen interface** - Clean, distraction-free camera view with optimized button placement
 
 ## Requirements
 
@@ -75,18 +80,25 @@ Download the latest APK from the [Releases](https://github.com/remideboer/androi
 
 1. **Launch the app** - The camera will start automatically
 2. **Grant permissions** - Allow camera access when prompted (first time only)
-3. **Take photos** - Tap the large round capture button
-4. **Photos are saved automatically** - Check your Pictures folder
-5. **Delete if needed** - Use the "Delete photo" button to remove the last photo
+3. **Switch modes** - Use the Photo/Video toggle button above the capture button
+4. **Take photos** - In Photo mode, tap the large round capture button
+5. **Record videos** - In Video mode, press and hold the capture button (turns red while recording), release to stop
+6. **Photos/videos are saved automatically** - Check your DCIM folder (camera photos location)
+7. **Share content** - Use the "Share Photo" button to share photos/videos with other apps
+8. **Scan QR codes** - Press "Start QR Scan" button (camera starts automatically if needed), scan QR codes with visual indicator
+9. **Delete if needed** - Use the "Delete photo" button to remove the last photo or video
 
 ## How It Works
 
 This app uses a WebView to load an HTML-based camera interface. The browser's camera API (`getUserMedia`) continues to work even when the native camera app fails, providing a reliable workaround for the ASUS Zenfone 8 camera issue.
 
 - **WebView-based** - Uses Android WebView for camera access
-- **Native file saving** - Photos saved via Android MediaStore API
+- **MediaRecorder API** - Records videos using browser's MediaRecorder API (MP4 format)
+- **Native file saving** - Photos and videos saved via Android MediaStore API
+- **QR code detection** - Uses BarcodeDetector API for QR code scanning with visual feedback
 - **Secure context** - WebView provides secure context for camera APIs
 - **No server required** - Everything runs locally on your device
+- **Dynamic layout** - Automatically adjusts video preview size to fit all buttons on screen
 
 ## Permissions
 
@@ -105,10 +117,11 @@ The app requires the following permissions:
 - Restart the app
 - Check that no other app is using the camera
 
-### Photos not saving
+### Photos/videos not saving
 - Verify storage permissions are granted (Android 9 and below)
 - Check available storage space
-- Photos are saved to: `Pictures/photo_YYYYMMDD_HHMMSS.jpg`
+- Photos are saved to: `DCIM/photo_YYYYMMDD_HHMMSS.jpg`
+- Videos are saved to: `DCIM/video_YYYYMMDD_HHMMSS.mp4`
 
 ### App crashes
 - Ensure you're running Android 7.0 or higher
@@ -121,7 +134,9 @@ The app requires the following permissions:
 - **Min SDK:** 24 (Android 7.0)
 - **Target SDK:** 34 (Android 14)
 - **Architecture:** WebView + Native Android APIs
-- **File Format:** JPEG (92% quality)
+- **Photo Format:** JPEG (92% quality)
+- **Video Format:** MP4 (H.264/AVC codec)
+- **Storage Location:** DCIM directory (standard camera photos folder)
 
 ## Contributing
 

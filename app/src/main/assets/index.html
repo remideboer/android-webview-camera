@@ -208,7 +208,10 @@
 
       <div id="capture-button-container">
         <button id="toggle-camera">Start Camera</button>
-        <button id="capture" disabled>Capture</button>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+          <button id="mode-toggle" class="secondary" style="font-size: 0.75rem; padding: 0.4rem 0.8rem;" disabled>📷 Photo</button>
+          <button id="capture" disabled>Capture</button>
+        </div>
         <button id="toggle-scan" class="secondary">Start QR Scan</button>
       </div>
 
@@ -243,11 +246,16 @@
       const sharePhotoBtn = document.getElementById("share-photo");
       const photoActions = document.getElementById("photo-actions");
       const qrOverlay = document.getElementById("qr-overlay");
+      const modeToggle = document.getElementById("mode-toggle");
 
       let stream;
       let isScanning = false;
       let scanHandle;
       let barcodeDetector;
+      let isVideoMode = false;
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let isRecording = false;
 
       // Dynamic layout adjustment function
       function adjustVideoHeight() {
@@ -355,6 +363,7 @@
 
           captureBtn.disabled = false;
           scanBtn.disabled = false;
+          modeToggle.disabled = false;
           toggleCameraBtn.textContent = "Stop Camera";
 
           showMessage("Camera is ready.");
@@ -388,8 +397,10 @@
         }
         preview.srcObject = null;
         captureBtn.disabled = true;
+        modeToggle.disabled = true;
         scanBtn.disabled = false; // Keep scan button enabled so it can start camera
         toggleCameraBtn.textContent = "Start Camera";
+        stopRecording(); // Stop any ongoing recording
         stopScanning();
         
         // Clear scanning message if it's just the "Scanning for QR codes..." text
@@ -488,6 +499,130 @@
         if (!saved) {
           showMessage("Photo captured. You can download it below.");
         }
+      }
+
+      function startRecording() {
+        if (!preview.srcObject || isRecording) {
+          return;
+        }
+
+        try {
+          recordedChunks = [];
+          const videoTrack = preview.srcObject.getVideoTracks()[0];
+          
+          if (!videoTrack) {
+            showError("No video track available for recording.");
+            return;
+          }
+
+          // Use MP4 codec only
+          let options = null;
+          const mp4Codecs = [
+            'video/mp4;codecs=h264',
+            'video/mp4;codecs=avc1',
+            'video/mp4'
+          ];
+          
+          for (const codec of mp4Codecs) {
+            if (MediaRecorder.isTypeSupported(codec)) {
+              options = { mimeType: codec };
+              break;
+            }
+          }
+          
+          if (!options) {
+            showError("MP4 video recording is not supported in this browser.");
+            return;
+          }
+
+          // Create MediaRecorder with video track
+          mediaRecorder = new MediaRecorder(preview.srcObject, options);
+
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          };
+
+          mediaRecorder.onstop = async () => {
+            const mimeType = mediaRecorder.mimeType || 'video/mp4';
+            const blob = new Blob(recordedChunks, { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            
+            // Show video preview
+            photo.src = url;
+            photo.hidden = false;
+            downloadLink.href = url;
+            downloadLink.download = `video_${Date.now()}.mp4`;
+            downloadLink.hidden = false;
+            photoActions.hidden = false;
+            sharePhotoBtn.hidden = false;
+            savePhotoBtn.hidden = false;
+
+            // Save video automatically
+            showMessage("Saving video...");
+            const saved = await saveVideoAutomatically(blob);
+            if (!saved) {
+              showMessage("Video recorded. You can download it below.");
+            }
+          };
+
+          mediaRecorder.onerror = (event) => {
+            console.error("MediaRecorder error:", event);
+            showError("Recording error occurred.");
+            isRecording = false;
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          captureBtn.style.background = "#ff3b30"; // Red while recording
+          showMessage("Recording...");
+        } catch (error) {
+          console.error("Error starting recording:", error);
+          showError("Failed to start recording: " + error.message);
+        }
+      }
+
+      function stopRecording() {
+        if (mediaRecorder && isRecording) {
+          mediaRecorder.stop();
+          isRecording = false;
+          captureBtn.style.background = "#9e9e9e"; // Reset to gray
+          showMessage("Processing video...");
+        }
+      }
+
+      async function saveVideoAutomatically(blob) {
+        // Check if Android interface is available (WebView)
+        if (window.AndroidFileSaver && window.AndroidFileSaver.saveVideo) {
+          try {
+            // Convert blob to base64
+            const reader = new FileReader();
+            const base64 = await new Promise((resolve, reject) => {
+              reader.onloadend = () => {
+                const base64data = reader.result;
+                resolve(base64data);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            
+            const result = window.AndroidFileSaver.saveVideo(base64);
+            if (result.startsWith("Video saved:")) {
+              showMessage(result);
+              return true;
+            } else {
+              showError(result);
+              return false;
+            }
+          } catch (error) {
+            console.error(error);
+            showError("Failed to save video: " + error.message);
+            return false;
+          }
+        }
+        
+        return false;
       }
 
       function showMessage(message) {
@@ -829,27 +964,72 @@
         }
       });
       
-      // Capture button with visual feedback
+      // Mode toggle functionality
+      modeToggle.addEventListener("click", () => {
+        if (modeToggle.disabled) return;
+        
+        isVideoMode = !isVideoMode;
+        if (isVideoMode) {
+          modeToggle.textContent = "🎥 Video";
+        } else {
+          modeToggle.textContent = "📷 Photo";
+        }
+      });
+
+      // Capture button with visual feedback and video recording
       captureBtn.addEventListener("mousedown", () => {
         if (!captureBtn.disabled) {
           captureBtn.classList.add("pressed");
+          if (isVideoMode) {
+            startRecording();
+          }
         }
       });
       captureBtn.addEventListener("mouseup", () => {
         captureBtn.classList.remove("pressed");
+        if (isVideoMode && isRecording) {
+          stopRecording();
+        } else if (!isVideoMode) {
+          capturePhoto();
+        }
       });
       captureBtn.addEventListener("mouseleave", () => {
         captureBtn.classList.remove("pressed");
-      });
-      captureBtn.addEventListener("touchstart", () => {
-        if (!captureBtn.disabled) {
-          captureBtn.classList.add("pressed");
+        if (isVideoMode && isRecording) {
+          stopRecording();
         }
       });
-      captureBtn.addEventListener("touchend", () => {
-        captureBtn.classList.remove("pressed");
+      captureBtn.addEventListener("touchstart", (e) => {
+        if (!captureBtn.disabled) {
+          e.preventDefault(); // Prevent click event
+          captureBtn.classList.add("pressed");
+          if (isVideoMode) {
+            startRecording();
+          }
+        }
       });
-      captureBtn.addEventListener("click", () => {
+      captureBtn.addEventListener("touchend", (e) => {
+        e.preventDefault(); // Prevent click event
+        captureBtn.classList.remove("pressed");
+        if (isVideoMode && isRecording) {
+          stopRecording();
+        } else if (!isVideoMode) {
+          capturePhoto();
+        }
+      });
+      captureBtn.addEventListener("touchcancel", (e) => {
+        e.preventDefault();
+        captureBtn.classList.remove("pressed");
+        if (isVideoMode && isRecording) {
+          stopRecording();
+        }
+      });
+      // Click handler for photo mode only
+      captureBtn.addEventListener("click", (e) => {
+        if (isVideoMode) {
+          e.preventDefault();
+          return; // Video mode uses press/release, not click
+        }
         captureBtn.classList.remove("pressed");
         capturePhoto();
       });

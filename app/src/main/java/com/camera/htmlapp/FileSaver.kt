@@ -214,5 +214,80 @@ class FileSaver(private val context: Context) {
             "Error sharing: ${e.message}"
         }
     }
+
+    @JavascriptInterface
+    fun saveVideo(base64Data: String): String {
+        return try {
+            // Remove data URL prefix if present
+            val base64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.indexOf(",") + 1)
+            } else {
+                base64Data
+            }
+
+            // Decode base64 to bytes
+            val videoBytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+
+            // Generate filename with timestamp (MP4 only)
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val filename = "video_$timestamp.mp4"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+ (API 29+): Use MediaStore API
+                val uri = saveVideoToMediaStore(videoBytes, filename)
+                if (uri != null) {
+                    return "Video saved: $filename"
+                }
+            } else {
+                // Android 9 and below: Save to DCIM directory
+                val filePath = saveVideoToFile(videoBytes, filename)
+                if (filePath != null) {
+                    return "Video saved: $filename"
+                }
+            }
+
+            "Error: Failed to save video"
+        } catch (e: Exception) {
+            "Error saving video: ${e.message}"
+        }
+    }
+
+    private fun saveVideoToMediaStore(videoBytes: ByteArray, filename: String): Uri? {
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM)
+        }
+
+        val uri = context.contentResolver.insert(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        ) ?: return null
+
+        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+            outputStream.write(videoBytes)
+        }
+
+        return uri
+    }
+
+    private fun saveVideoToFile(videoBytes: ByteArray, filename: String): String? {
+        val dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+        if (!dcimDir.exists()) {
+            dcimDir.mkdirs()
+        }
+
+        val file = File(dcimDir, filename)
+        FileOutputStream(file).use { outputStream ->
+            outputStream.write(videoBytes)
+        }
+
+        // Notify media scanner
+        val intent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+        intent.data = android.net.Uri.fromFile(file)
+        context.sendBroadcast(intent)
+
+        return file.absolutePath
+    }
 }
 
