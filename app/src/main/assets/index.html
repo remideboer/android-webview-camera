@@ -654,25 +654,22 @@
         qrResult.style.display = "block";
         
         if (isURL(value)) {
-          // It's a URL - offer to open it
+          // It's a URL - automatically open it
           const messageDiv = document.createElement("div");
           messageDiv.textContent = `QR Code detected: ${value}`;
           messageDiv.style.marginBottom = "0.75rem";
           qrResult.appendChild(messageDiv);
           
-          // Create a clickable link
-          const link = document.createElement("a");
-          link.href = value;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = "Open Link";
-          link.style.cssText = "display: inline-block; margin-right: 0.5rem; padding: 0.75rem 1.25rem; background: #0a84ff; color: white; text-decoration: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
-          qrResult.appendChild(link);
+          // Automatically open the URL
+          showMessage(`Opening: ${value}`);
+          setTimeout(() => {
+            window.open(value, "_blank", "noopener,noreferrer");
+          }, 500); // Small delay to show the message
           
           // Also add a copy button
           const copyBtn = document.createElement("button");
           copyBtn.textContent = "Copy";
-          copyBtn.style.cssText = "display: inline-block; padding: 0.75rem 1.25rem; background: #e5e5ea; color: #1d1d1f; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
+          copyBtn.style.cssText = "display: inline-block; margin-top: 0.5rem; padding: 0.75rem 1.25rem; background: #e5e5ea; color: #1d1d1f; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer;";
           copyBtn.onclick = () => {
             navigator.clipboard.writeText(value).then(() => {
               copyBtn.textContent = "Copied!";
