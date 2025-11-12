@@ -37,7 +37,7 @@ If these steps don't resolve the issue, this app provides a reliable workaround 
 - ✅ **Photo capture** - Large, easy-to-use capture button (camera app style)
 - ✅ **Automatic saving** - Photos saved directly to Pictures directory
 - ✅ **Photo deletion** - Delete last captured photo if needed
-- ✅ **QR code scanning** - Built-in QR code scanner functionality
+- ❌ **QR code scanning** - Currently not working (needs to be fixed)
 - ✅ **Offline capable** - Works without internet connection
 - ✅ **Full-screen interface** - Clean, distraction-free camera view
 
@@ -53,8 +53,8 @@ If these steps don't resolve the issue, this app provides a reliable workaround 
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
-   cd android-app
+   git clone https://github.com/remideboer/android-webview-camera.git
+   cd android-webview-camera
    ```
 
 2. **Open in Android Studio:**
@@ -69,7 +69,7 @@ If these steps don't resolve the issue, this app provides a reliable workaround 
 
 ### Option 2: Install APK (if available)
 
-Download the latest APK from the [Releases](../../releases) page and install on your device.
+Download the latest APK from the [Releases](https://github.com/remideboer/android-webview-camera/releases) page and install on your device.
 
 ## Usage
 
