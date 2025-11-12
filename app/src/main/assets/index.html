@@ -56,9 +56,30 @@
         background: #000;
       }
 
+      #video-container {
+        position: relative;
+        width: 100%;
+      }
+
       video {
         max-height: 60vh;
         object-fit: cover;
+        display: block;
+        position: relative;
+        z-index: 0;
+      }
+
+      #qr-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        border-radius: 0.75rem;
+        background: transparent;
+        z-index: 1;
+        opacity: 1;
       }
 
       #capture-button-container {
@@ -177,7 +198,10 @@
     </header>
 
     <section id="camera-area">
-      <video id="preview" playsinline muted></video>
+      <div id="video-container" style="position: relative; width: 100%;">
+        <video id="preview" playsinline muted autoplay></video>
+        <canvas id="qr-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none;"></canvas>
+      </div>
 
       <div id="capture-button-container">
         <button id="capture" disabled>Capture</button>
@@ -215,6 +239,7 @@
       const downloadLink = document.getElementById("download-link");
       const qrResult = document.getElementById("qr-result");
       const savePhotoBtn = document.getElementById("save-photo");
+      const qrOverlay = document.getElementById("qr-overlay");
 
       let stream;
       let isScanning = false;
@@ -281,6 +306,13 @@
           });
           preview.srcObject = stream;
           await preview.play();
+
+          // Update overlay size when video is ready
+          preview.addEventListener("loadedmetadata", () => {
+            const overlayRect = qrOverlay.getBoundingClientRect();
+            qrOverlay.width = overlayRect.width;
+            qrOverlay.height = overlayRect.height;
+          });
 
           captureBtn.disabled = false;
           stopBtn.disabled = false;
@@ -434,6 +466,135 @@
           cancelAnimationFrame(scanHandle);
           scanHandle = undefined;
         }
+        clearQROverlay();
+        if (qrOverlay) {
+          qrOverlay.style.display = "none";
+        }
+      }
+
+      function clearQROverlay() {
+        if (!qrOverlay) return;
+        try {
+          const ctx = qrOverlay.getContext("2d");
+          if (qrOverlay.width && qrOverlay.height) {
+            ctx.clearRect(0, 0, qrOverlay.width, qrOverlay.height);
+          }
+        } catch (e) {
+          console.warn("Could not clear QR overlay:", e);
+        }
+      }
+
+      function drawQRRectangle(barcode, color = "#9e9e9e") {
+        if (!barcode || !barcode.boundingBox || !qrOverlay || !preview) {
+          return;
+        }
+
+        try {
+          const ctx = qrOverlay.getContext("2d");
+          const videoRect = preview.getBoundingClientRect();
+          const overlayRect = qrOverlay.getBoundingClientRect();
+          
+          // Get video dimensions
+          const videoWidth = preview.videoWidth;
+          const videoHeight = preview.videoHeight;
+          
+          if (!videoWidth || !videoHeight) {
+            return; // Video not ready yet
+          }
+          
+          // Get overlay dimensions
+          qrOverlay.width = overlayRect.width;
+          qrOverlay.height = overlayRect.height;
+          
+          // Calculate scale factors
+          const scaleX = overlayRect.width / videoWidth;
+          const scaleY = overlayRect.height / videoHeight;
+          
+          // Get bounding box coordinates
+          const box = barcode.boundingBox;
+          const x = box.x * scaleX;
+          const y = box.y * scaleY;
+          const width = box.width * scaleX;
+          const height = box.height * scaleY;
+          
+          // Clear previous drawing
+          ctx.clearRect(0, 0, qrOverlay.width, qrOverlay.height);
+          
+          // Draw rectangle
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 4;
+          ctx.strokeRect(x, y, width, height);
+          
+          // Draw corner markers for better visibility
+          const cornerLength = 20;
+          ctx.beginPath();
+          // Top-left
+          ctx.moveTo(x, y + cornerLength);
+          ctx.lineTo(x, y);
+          ctx.lineTo(x + cornerLength, y);
+          // Top-right
+          ctx.moveTo(x + width - cornerLength, y);
+          ctx.lineTo(x + width, y);
+          ctx.lineTo(x + width, y + cornerLength);
+          // Bottom-right
+          ctx.moveTo(x + width, y + height - cornerLength);
+          ctx.lineTo(x + width, y + height);
+          ctx.lineTo(x + width - cornerLength, y + height);
+          // Bottom-left
+          ctx.moveTo(x + cornerLength, y + height);
+          ctx.lineTo(x, y + height);
+          ctx.lineTo(x, y + height - cornerLength);
+          ctx.stroke();
+        } catch (e) {
+          console.warn("Could not draw QR rectangle:", e);
+        }
+      }
+
+      function drawNeutralRectangle() {
+        if (!qrOverlay) return;
+        try {
+          const ctx = qrOverlay.getContext("2d");
+          const overlayRect = qrOverlay.getBoundingClientRect();
+        
+        qrOverlay.width = overlayRect.width;
+        qrOverlay.height = overlayRect.height;
+        
+        // Draw a rectangle in the center
+        const centerX = overlayRect.width / 2;
+        const centerY = overlayRect.height / 2;
+        const rectWidth = overlayRect.width * 0.6;
+        const rectHeight = overlayRect.height * 0.4;
+        const x = centerX - rectWidth / 2;
+        const y = centerY - rectHeight / 2;
+        
+        ctx.clearRect(0, 0, qrOverlay.width, qrOverlay.height);
+        ctx.strokeStyle = "#9e9e9e";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, rectWidth, rectHeight);
+        
+        // Draw corner markers
+        const cornerLength = 15;
+        ctx.beginPath();
+        // Top-left
+        ctx.moveTo(x, y + cornerLength);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + cornerLength, y);
+        // Top-right
+        ctx.moveTo(x + rectWidth - cornerLength, y);
+        ctx.lineTo(x + rectWidth, y);
+        ctx.lineTo(x + rectWidth, y + cornerLength);
+        // Bottom-right
+        ctx.moveTo(x + rectWidth, y + rectHeight - cornerLength);
+        ctx.lineTo(x + rectWidth, y + rectHeight);
+        ctx.lineTo(x + rectWidth - cornerLength, y + rectHeight);
+        // Bottom-left
+        ctx.moveTo(x + cornerLength, y + rectHeight);
+        ctx.lineTo(x, y + rectHeight);
+        ctx.lineTo(x, y + rectHeight - cornerLength);
+        ctx.stroke();
+        } catch (e) {
+          console.warn("Could not draw neutral rectangle:", e);
+        }
       }
 
       function startScanning() {
@@ -460,6 +621,9 @@
 
         isScanning = true;
         scanBtn.textContent = "Stop QR Scan";
+        // Show overlay and draw neutral rectangle in center when starting to scan
+        qrOverlay.style.display = "block";
+        drawNeutralRectangle();
         scanLoop();
       }
 
@@ -554,11 +718,17 @@
         try {
           const barcodes = await barcodeDetector.detect(preview);
           if (barcodes.length) {
+            // Draw green rectangle around detected QR code
+            drawQRRectangle(barcodes[0], "#34c759");
             const qrValue = barcodes[0].rawValue;
             handleQRCodeResult(qrValue);
             return;
-          } else if (!qrResult.classList.contains("error")) {
-            showMessage("Scanning for QR codes...");
+          } else {
+            // Draw neutral rectangle in center while scanning
+            drawNeutralRectangle();
+            if (!qrResult.classList.contains("error")) {
+              showMessage("Scanning for QR codes...");
+            }
           }
         } catch (error) {
           console.error(error);
